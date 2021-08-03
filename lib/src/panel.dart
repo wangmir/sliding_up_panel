@@ -17,7 +17,7 @@ enum SlideDirection {
   DOWN,
 }
 
-enum PanelState { OPEN, CLOSED }
+enum PanelState { FULLY_OPENED, HALF, FULLY_COLLAPSED }
 
 class SlidingUpPanel extends StatefulWidget {
   /// The Widget that slides into view. When the
@@ -63,6 +63,9 @@ class SlidingUpPanel extends StatefulWidget {
   /// The height of the sliding panel when fully open.
   final double maxHeight;
 
+  /// The height of the sliding panel when half open.
+  final double halfHeight;
+
   /// A point between [minHeight] and [maxHeight] that the panel snaps to
   /// while animating. A fast swipe on the panel will disregard this point
   /// and go directly to the open/close position. This value is represented as a
@@ -96,6 +99,9 @@ class SlidingUpPanel extends StatefulWidget {
   /// looks like.
   final bool renderPanelSheet;
 
+  /// if non-null, tri-state sliding up panel is enabled
+  final bool halfOpenEnabled;
+
   /// Set to false to disable the panel from snapping open or closed.
   final bool panelSnapping;
 
@@ -126,6 +132,8 @@ class SlidingUpPanel extends StatefulWidget {
   /// If non-null, this callback is called when the
   /// panel is fully opened
   final VoidCallback? onPanelOpened;
+
+  final VoidCallback? onPanelHalf;
 
   /// If non-null, this callback is called when the panel
   /// is fully collapsed.
@@ -167,6 +175,7 @@ class SlidingUpPanel extends StatefulWidget {
       this.collapsed,
       this.minHeight = 100.0,
       this.maxHeight = 500.0,
+      this.halfHeight = 300.0,
       this.snapPoint,
       this.border,
       this.borderRadius,
@@ -188,12 +197,14 @@ class SlidingUpPanel extends StatefulWidget {
       this.backdropTapClosesPanel = true,
       this.onPanelSlide,
       this.onPanelOpened,
+      this.onPanelHalf,
       this.onPanelClosed,
       this.parallaxEnabled = false,
       this.parallaxOffset = 0.1,
       this.isDraggable = true,
+      this.halfOpenEnabled = false,
       this.slideDirection = SlideDirection.UP,
-      this.defaultPanelState = PanelState.CLOSED,
+      this.defaultPanelState = PanelState.FULLY_COLLAPSED,
       this.header,
       this.footer})
       : assert(panel != null || panelBuilder != null),
@@ -215,24 +226,47 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
 
   bool _isPanelVisible = true;
 
+  static const double _fullyOpenedAcValue = 1.0;
+  static const double _fullyClosedAcValue = 0.0;
+  double get _halfOpenedAcValue =>
+      (widget.halfHeight - widget.minHeight) /
+      (widget.maxHeight - widget.minHeight);
+
+  double get _defaultAcValue {
+    double acValue = 0;
+    switch (widget.defaultPanelState) {
+      case PanelState.FULLY_COLLAPSED:
+        acValue = _fullyClosedAcValue;
+        break;
+      case PanelState.HALF:
+        acValue = _halfOpenedAcValue;
+        break;
+      case PanelState.FULLY_OPENED:
+        acValue = _fullyOpenedAcValue;
+        break;
+    }
+
+    return acValue;
+  }
+
   @override
   void initState() {
     super.initState();
 
     _ac = new AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 300),
-        value: widget.defaultPanelState == PanelState.CLOSED
-            ? 0.0
-            : 1.0 //set the default panel state (i.e. set initial value of _ac)
-        )
-      ..addListener(() {
+      vsync: this, duration: const Duration(milliseconds: 300),
+      value: _defaultAcValue,
+      //set the default panel state (i.e. set initial value of _ac)
+    )..addListener(() {
         if (widget.onPanelSlide != null) widget.onPanelSlide!(_ac.value);
 
-        if (widget.onPanelOpened != null && _ac.value == 1.0)
+        if (widget.onPanelOpened != null && _ac.value == _fullyOpenedAcValue)
           widget.onPanelOpened!();
 
-        if (widget.onPanelClosed != null && _ac.value == 0.0)
+        if (widget.onPanelHalf != null && _ac.value == _halfOpenedAcValue)
+          widget.onPanelHalf!();
+
+        if (widget.onPanelClosed != null && _ac.value == _fullyClosedAcValue)
           widget.onPanelClosed!();
       });
 
@@ -528,7 +562,15 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
 
         // no snap point exists
       } else if (widget.panelSnapping) {
-        _ac.fling(velocity: visualVelocity);
+        if (visualVelocity > 0) {
+          _ac.fling(velocity: visualVelocity);
+        } else {
+          _flingPanelToPosition(
+              _ac.value < _defaultAcValue
+                  ? _fullyClosedAcValue
+                  : _defaultAcValue,
+              visualVelocity);
+        }
 
         // panel snapping disabled
       } else {
@@ -554,7 +596,7 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
     }
   }
 
-  void _flingPanelToPosition(double targetPos, double velocity) {
+  Future<void> _flingPanelToPosition(double targetPos, double velocity) {
     final Simulation simulation = SpringSimulation(
         SpringDescription.withDampingRatio(
           mass: 1.0,
@@ -565,7 +607,7 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
         targetPos,
         velocity);
 
-    _ac.animateWith(simulation);
+    return _ac.animateWith(simulation);
   }
 
   //---------------------------------
@@ -574,7 +616,7 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
 
   //close the panel
   Future<void> _close() {
-    return _ac.fling(velocity: -1.0);
+    return _flingPanelToPosition(_defaultAcValue, -1.0);
   }
 
   //open the panel
@@ -634,11 +676,11 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
 
   //returns whether or not the
   //panel is open
-  bool get _isPanelOpen => _ac.value == 1.0;
+  bool get _isPanelOpen => _ac.value == _fullyOpenedAcValue;
 
   //returns whether or not the
   //panel is closed
-  bool get _isPanelClosed => _ac.value == 0.0;
+  bool get _isPanelClosed => _ac.value == _fullyClosedAcValue;
 
   //returns whether or not the
   //panel is shown/hidden
