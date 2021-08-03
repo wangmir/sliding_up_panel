@@ -63,6 +63,7 @@ class _HomePageState extends State<HomePage> {
           SlidingUpPanel(
             backdropEnabled: true,
             backdropTapClosesPanel: true,
+            backdropOpacity: 0,
             maxHeight: _panelHeightOpen,
             halfHeight: 300.0,
             halfOpenEnabled: true,
@@ -277,6 +278,10 @@ class _HomePageState extends State<HomePage> {
   Widget _body() {
     return Container(
       color: Colors.amber,
+      child: IconButton(
+        icon: Icon(Icons.play_arrow),
+        onPressed: () => print("button pressed"),
+      ),
     );
   }
 }

@@ -306,7 +306,7 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
             : Container(),
 
         //the backdrop to overlay on the body
-        !widget.backdropEnabled
+        (!widget.backdropEnabled || !_isPanelOpen)
             ? Container()
             : GestureDetector(
                 onVerticalDragEnd: widget.backdropTapClosesPanel
@@ -319,7 +319,11 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
                             0) _close();
                       }
                     : null,
-                onTap: widget.backdropTapClosesPanel ? () => _close() : null,
+                onTap: widget.backdropTapClosesPanel
+                    ? () {
+                        _close();
+                      }
+                    : null,
                 child: AnimatedBuilder(
                     animation: _ac,
                     builder: (context, _) {
@@ -546,9 +550,10 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
     // get minimum distances to figure out where the panel is at
     double d2Close = _ac.value;
     double d2Open = 1 - _ac.value;
+    double d2Half = (_halfOpenedAcValue - _ac.value).abs();
     double d2Snap = ((widget.snapPoint ?? 3) - _ac.value)
         .abs(); // large value if null results in not every being the min
-    double minDistance = min(d2Close, min(d2Snap, d2Open));
+    double minDistance = min(d2Half, min(d2Close, min(d2Snap, d2Open)));
 
     // check if velocity is sufficient for a fling
     if (v.pixelsPerSecond.dy.abs() >= minFlingVelocity) {
@@ -587,10 +592,12 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
     // check if the controller is already halfway there
     if (widget.panelSnapping) {
       if (minDistance == d2Close) {
-        _close();
+        _close(fullClose: true);
+      } else if (minDistance == d2Half) {
+        _ac.animateTo(_halfOpenedAcValue);
       } else if (minDistance == d2Snap) {
         _flingPanelToPosition(widget.snapPoint!, visualVelocity);
-      } else {
+      } else if (minDistance == d2Open) {
         _open();
       }
     }
@@ -615,7 +622,10 @@ class _SlidingUpPanelState extends State<SlidingUpPanel>
   //---------------------------------
 
   //close the panel
-  Future<void> _close() {
+  Future<void> _close({bool fullClose = false}) {
+    if (fullClose) {
+      return _ac.fling(velocity: -1.0);
+    }
     return _flingPanelToPosition(_defaultAcValue, -1.0);
   }
 
