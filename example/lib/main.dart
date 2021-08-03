@@ -9,12 +9,8 @@ Licensing: More information can be found here: https://github.com/akshathjain/sl
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:flutter/services.dart';
-
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong/latlong.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 void main() => runApp(SlidingUpPanelExample());
 
@@ -65,11 +61,16 @@ class _HomePageState extends State<HomePage> {
         alignment: Alignment.topCenter,
         children: <Widget>[
           SlidingUpPanel(
+            backdropEnabled: true,
+            backdropTapClosesPanel: true,
             maxHeight: _panelHeightOpen,
+            halfHeight: 300.0,
+            halfOpenEnabled: true,
             minHeight: _panelHeightClosed,
             parallaxEnabled: true,
             parallaxOffset: .5,
             body: _body(),
+            defaultPanelState: PanelState.HALF,
             panelBuilder: (sc) => _panel(sc),
             borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(18.0),
@@ -196,16 +197,14 @@ class _HomePageState extends State<HomePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: <Widget>[
-                      CachedNetworkImage(
-                        imageUrl:
-                            "https://images.fineartamerica.com/images-medium-large-5/new-pittsburgh-emmanuel-panagiotakis.jpg",
+                      Image.network(
+                        "https://images.fineartamerica.com/images-medium-large-5/new-pittsburgh-emmanuel-panagiotakis.jpg",
                         height: 120.0,
                         width: (MediaQuery.of(context).size.width - 48) / 2 - 2,
                         fit: BoxFit.cover,
                       ),
-                      CachedNetworkImage(
-                        imageUrl:
-                            "https://cdn.pixabay.com/photo/2016/08/11/23/48/pnc-park-1587285_1280.jpg",
+                      Image.network(
+                        "https://cdn.pixabay.com/photo/2016/08/11/23/48/pnc-park-1587285_1280.jpg",
                         width: (MediaQuery.of(context).size.width - 48) / 2 - 2,
                         height: 120.0,
                         fit: BoxFit.cover,
@@ -250,9 +249,14 @@ class _HomePageState extends State<HomePage> {
       children: <Widget>[
         Container(
           padding: const EdgeInsets.all(16.0),
-          child: Icon(
-            icon,
-            color: Colors.white,
+          child: IconButton(
+            icon: Icon(
+              icon,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              print("clicked");
+            },
           ),
           decoration:
               BoxDecoration(color: color, shape: BoxShape.circle, boxShadow: [
@@ -271,26 +275,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _body() {
-    return FlutterMap(
-      options: MapOptions(
-        center: LatLng(40.441589, -80.010948),
-        zoom: 13,
-        maxZoom: 15,
-      ),
-      layers: [
-        TileLayerOptions(
-            urlTemplate: "https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png"),
-        MarkerLayerOptions(markers: [
-          Marker(
-              point: LatLng(40.441753, -80.011476),
-              builder: (ctx) => Icon(
-                    Icons.location_on,
-                    color: Colors.blue,
-                    size: 48.0,
-                  ),
-              height: 60),
-        ]),
-      ],
+    return Container(
+      color: Colors.amber,
     );
   }
 }
